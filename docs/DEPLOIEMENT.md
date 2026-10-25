@@ -1,55 +1,73 @@
 # Mise en ligne de Hope Better World
 
-## 1. Publier le site (gratuit)
+Le parcours prévu : **tester sur GitHub Pages**, puis **mettre en production sur Hostinger**,
+puis **faire pointer hopebetterworld.org** (aujourd'hui chez Amen) vers Hostinger.
 
-**Option conseillée : GitHub Pages**, puisque le code est déjà sur GitHub.
+## 1. Version de test sur GitHub Pages (gratuit)
 
-1. Sur GitHub, ouvrir le dépôt `hopebetterworld` → **Settings** → **Pages**.
-2. Source : *Deploy from a branch*, branche `main`, dossier `/ (root)`.
-3. Le site est disponible quelques minutes plus tard à `https://damtoti2020.github.io/hopebetterworld/`.
+1. Dépôt `hopebetterworld` → **Settings** → **General** → tout en bas, **Change visibility** → **Public**.
+2. **Settings** → **Pages** → Source : *Deploy from a branch*, branche `main`, dossier `/ (root)` → **Save**.
+3. Après 1 à 2 minutes, le site de test est en ligne sur
+   **https://damtoti2020.github.io/hopebetterworld/**.
 
-Alternative : Netlify ou Cloudflare Pages (glisser-déposer du dossier, ou connexion au dépôt).
+Chaque fusion dans `main` met à jour ce site de test automatiquement.
 
-## 2. Brancher le nom de domaine hopebetterworld.org
+## 2. Avant la production : enregistrer les données sur le serveur
 
-1. Dans **Settings → Pages → Custom domain**, saisir `hopebetterworld.org`.
-2. Chez le registraire du domaine, créer les enregistrements DNS indiqués par GitHub
-   (4 enregistrements `A` vers les adresses GitHub Pages, et un `CNAME` `www` vers `damtoti2020.github.io`).
-3. Cocher **Enforce HTTPS** une fois le certificat émis.
+Dans cette version, adhésions, dons, inscriptions et messages sont enregistrés **dans le navigateur
+de chaque visiteur** : parfait pour tester, mais le bureau ne les recevrait pas.
+Avant d'ouvrir le site au public, il faut un stockage central. Sur Hostinger, la solution la plus
+simple est celle déjà incluse dans l'hébergement :
 
-À faire seulement quand la nouvelle version est validée, car l'ancien site cessera d'être servi.
+- **PHP + MySQL** (inclus dans les offres Hostinger) : une petite API qui enregistre les
+  données dans une base MySQL, et des comptes protégés par mot de passe pour le bureau.
+- Les formulaires publics (adhésion, don, inscription, contact) ne peuvent qu'*ajouter* ;
+  seul le bureau connecté peut lire et modifier.
+- Envoi automatique d'e-mails (accusé de réception, convocations) via la messagerie Hostinger.
 
-## 3. Paiements avec HelloAsso (gratuit pour les associations)
+Il faut aussi, dans **Espace gestion → Paramètres** : supprimer les données d'exemple,
+coller les liens HelloAsso, ajouter une photo d'accueil.
 
-1. Créer le compte de l'association sur helloasso.com (RNA et SIRET requis, justificatifs du président).
+## 3. Mise en production sur Hostinger
+
+**Une seule fois :**
+1. hPanel Hostinger → **Sites web** → ajouter `hopebetterworld.org`.
+2. hPanel → **Fichiers** → **Comptes FTP** : noter le serveur, l'identifiant et le mot de passe.
+3. GitHub → dépôt → **Settings** → **Secrets and variables** → **Actions** → créer
+   `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`.
+
+**À chaque mise en production :** GitHub → onglet **Actions** → **Déployer sur Hostinger** →
+**Run workflow**. Les fichiers de `main` sont copiés dans `public_html/`.
+
+Le site peut être vérifié chez Hostinger avec l'adresse temporaire fournie par hPanel
+avant de toucher au nom de domaine.
+
+## 4. Faire pointer hopebetterworld.org vers Hostinger (chez Amen)
+
+⚠️ **Avant toute modification, vérifiez si des adresses e-mail en `@hopebetterworld.org`
+sont utilisées chez Amen.** Changer les serveurs DNS coupe ces boîtes si rien n'est prévu.
+
+- **Option A, recommandée si aucune adresse e-mail n'utilise le domaine** : dans l'espace client
+  Amen → nom de domaine → **Serveurs DNS**, remplacer par ceux indiqués par Hostinger
+  (`ns1.dns-parking.com` et `ns2.dns-parking.com` en général, à confirmer dans hPanel).
+- **Option B, si des e-mails tournent chez Amen** : garder les DNS chez Amen et modifier
+  seulement l'enregistrement **A** de `hopebetterworld.org` et le **CNAME** `www`
+  avec les valeurs données par Hostinger. Les enregistrements MX (e-mails) restent intacts.
+
+La propagation prend de quelques minutes à 48 h. Activer ensuite le **SSL gratuit**
+dans hPanel (HTTPS).
+
+Le transfert complet du domaine d'Amen vers Hostinger est possible plus tard, mais n'est pas
+nécessaire pour que le site fonctionne.
+
+## 5. Paiements avec HelloAsso (gratuit pour les associations)
+
+1. Créer le compte de l'association sur helloasso.com (RNA et SIRET requis).
 2. Créer une **campagne d'adhésion** avec les tarifs votés en AG, et un **formulaire de don**.
 3. Coller les deux liens dans **Espace gestion → Paramètres → Paiement en ligne**.
 
-Les boutons « Payer ma cotisation » et « Finaliser le paiement » apparaissent alors automatiquement.
-
-## 4. Base de données partagée (Supabase, offre gratuite)
-
-Aujourd'hui, les données restent dans le navigateur. Pour que tout le bureau voie les mêmes membres,
-dons et inscriptions depuis n'importe quel appareil :
-
-1. Créer un projet sur supabase.com (région Europe).
-2. Créer une table par collection de `js/data.js` : `membres`, `cotisations`, `dons`, `evenements`,
-   `flashs`, `medias`, `instances`, `messages`, et une table `settings`.
-3. Activer **Supabase Auth** : un compte par membre du bureau (président, vice-président, secrétaire, trésorier),
-   à la place du code d'accès unique.
-4. Règles de sécurité (RLS) : le public peut seulement *créer* une adhésion, une promesse de don,
-   une inscription ou un message ; seul le bureau peut lire et modifier.
-5. Remplacer `load()` et `persist()` de `js/data.js` par des appels au client Supabase.
-6. Stocker photos et vidéos dans **Supabase Storage** plutôt que dans le navigateur.
-
-## 5. E-mails automatiques (optionnel)
-
-Avec Supabase (fonctions Edge) et un service d'envoi (Brevo, gratuit jusqu'à 300 e-mails par jour) :
-accusé de réception d'adhésion, confirmation d'inscription à un événement, envoi des convocations
-d'AG directement depuis l'espace gestion.
-
 ## Données personnelles (RGPD)
 
-- Ajouter une page « Mentions légales et confidentialité » (responsable : le président).
-- Ne collecter que le nécessaire, permettre la suppression sur demande (déjà possible dans Membres).
-- Le registre prévu par la loi de 1901 (art. 12) correspond aux procès-verbaux archivés dans « AG et conseils ».
+- Ajouter une page « Mentions légales et confidentialité » (responsable : le président,
+  hébergeur : Hostinger).
+- Ne collecter que le nécessaire, permettre la suppression sur demande.

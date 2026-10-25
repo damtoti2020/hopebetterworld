@@ -58,6 +58,15 @@ const ACTIONS = [
   { icon: 'handshake', titre: 'Partenariats', texte: 'Collaborer avec les pouvoirs publics, les collectivités locales, les ONG et les institutions nationales et internationales.' },
 ];
 
+function seedProjets() {
+  const t = todayISO();
+  return [
+    { id: uid(), titre: 'Un centre médico-social en zone rurale', lieu: '', resume: 'Construire et équiper un centre de soins de proximité dans un village éloigné de tout hôpital : consultations, maternité, vaccinations.', objectif: 15000, collecteInitiale: 3200, image: '', couleur: 'rouge', icon: 'hospital', statut: 'en-cours', date: addDays(t, -90), exemple: true },
+    { id: uid(), titre: 'Potagers bio partagés', lieu: '', resume: 'Former des familles à l’agriculture biologique et leur fournir semences et outils pour nourrir le foyer et vendre le surplus.', objectif: 4000, collecteInitiale: 2650, image: '', couleur: 'vert', icon: 'sprout', statut: 'en-cours', date: addDays(t, -60), exemple: true },
+    { id: uid(), titre: 'Rentrée scolaire solidaire', lieu: '', resume: 'Offrir cartables, cahiers et manuels aux enfants des familles démunies pour qu’aucun ne manque la rentrée.', objectif: 2500, collecteInitiale: 1900, image: '', couleur: 'bleu', icon: 'backpack', statut: 'en-cours', date: addDays(t, -30), exemple: true },
+  ];
+}
+
 function seed() {
   const t = todayISO();
   const year = new Date().getFullYear();
@@ -80,6 +89,7 @@ function seed() {
       tel: '',
       facebook: FACEBOOK,
       youtube: YOUTUBE,
+      heroImage: '',
       helloassoAdhesion: '',
       helloassoDon: '',
       cotisations: { actif: 20, bienfaiteur: 50, bienfaiteurEntree: 10, morale: 100, fondateur: 20 },
@@ -119,6 +129,7 @@ function seed() {
     instances: [
       { id: uid(), type: 'AGO', date: addDays(t, 27), heure: '18:30', lieu: '15 rue Crespin du Gast, 75011 Paris', ordreDuJour: '1. Rapport moral du président\n2. Rapport financier du trésorier\n3. Approbation des comptes de l’exercice clos\n4. Fixation des cotisations\n5. Élection du conseil d’administration (bulletin secret)\n6. Questions diverses', dateConvocation: '', presents: 0, representes: 0, pv: '', statut: 'planifiee', exemple: true },
     ],
+    projets: seedProjets(),
     messages: [
       { id: uid(), nom: 'Claire B.', email: 'claire.exemple@mail.fr', sujet: 'Devenir bénévole', texte: 'Bonjour, je souhaite aider lors de la prochaine collecte. Comment faire ?', date: addDays(t, -1), lu: false, exemple: true },
     ],
@@ -134,10 +145,17 @@ function load() {
     if (raw) memory = JSON.parse(raw);
   } catch (e) { /* stockage indisponible : on reste en mémoire */ }
   if (!memory || memory.version !== 1) memory = seed();
-  if (memory.settings.facebook === undefined) memory.settings.facebook = FACEBOOK;
-  if (memory.settings.youtube === undefined) memory.settings.youtube = YOUTUBE;
-  if (memory.settings.email === 'hopebetterword@gmail.com') memory.settings.email = EMAIL;
+  migrate(memory);
   return memory;
+}
+
+/* Complète les données enregistrées par une version antérieure du site. */
+function migrate(d) {
+  if (d.settings.facebook === undefined) d.settings.facebook = FACEBOOK;
+  if (d.settings.youtube === undefined) d.settings.youtube = YOUTUBE;
+  if (d.settings.email === 'hopebetterword@gmail.com') d.settings.email = EMAIL;
+  if (d.settings.heroImage === undefined) d.settings.heroImage = '';
+  if (!Array.isArray(d.projets)) d.projets = seedProjets();
 }
 
 function persist() {
@@ -160,7 +178,7 @@ const db = {
   reset() { memory = seed(); persist(); },
   clearExamples() {
     const d = load();
-    for (const col of ['membres', 'cotisations', 'dons', 'evenements', 'flashs', 'medias', 'instances', 'messages']) {
+    for (const col of ['membres', 'cotisations', 'dons', 'evenements', 'flashs', 'medias', 'instances', 'messages', 'projets']) {
       d[col] = d[col].filter((x) => !x.exemple);
     }
     persist();
@@ -168,6 +186,7 @@ const db = {
   importJSON(text) {
     const parsed = JSON.parse(text);
     if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.membres)) throw new Error('Fichier non reconnu');
+    migrate(parsed);
     memory = parsed;
     persist();
   },
@@ -183,6 +202,10 @@ const regles = {
   montantCotisation(categorie) {
     const c = db.data.settings.cotisations;
     return c[categorie] ?? 0;
+  },
+  collecteProjet(projet) {
+    const dons = db.data.dons.filter((d) => d.projetId === projet.id && d.statut === 'recu').reduce((s, d) => s + Number(d.montant), 0);
+    return Number(projet.collecteInitiale || 0) + dons;
   },
   dateLimiteConvocation(instance) {
     const delai = INSTANCES[instance.type]?.delai ?? 0;

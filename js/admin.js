@@ -13,6 +13,7 @@ const TABS = {
   membres: { label: 'Membres', icon: 'users', render: tMembres, count: () => db.data.membres.filter((m) => m.statut === 'attente').length },
   cotisations: { label: 'Cotisations', icon: 'wallet', render: tCotisations },
   dons: { label: 'Dons', icon: 'heart', render: tDons, count: () => db.data.dons.filter((d) => d.statut === 'promesse').length },
+  projets: { label: 'Projets', icon: 'target', render: tProjets },
   agenda: { label: 'Événements', icon: 'calendar-days', render: tAgenda },
   medias: { label: 'Flash et galerie', icon: 'clapperboard', render: tMedias },
   instances: { label: 'AG et conseils', icon: 'gavel', render: tInstances },
@@ -292,7 +293,7 @@ function tDons(main, rerender) {
       <thead><tr><th>Date</th><th>Donateur</th><th>Montant</th><th>État</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
       <tbody>${dons.map((d) => `<tr>
         <td class="num">${esc(fmtDate(d.date))}</td>
-        <td><b>${esc(d.nom)}</b>${exChip(d)}${d.message ? `<div class="sub">« ${esc(d.message)} »</div>` : ''}</td>
+        <td><b>${esc(d.nom)}</b>${exChip(d)}${d.projetId ? `<div class="sub">Projet : ${esc(db.find('projets', d.projetId)?.titre || 'supprimé')}</div>` : ''}${d.message ? `<div class="sub">« ${esc(d.message)} »</div>` : ''}</td>
         <td class="num"><b>${fmtEUR(d.montant)}</b>${d.frequence === 'mensuel' ? ' <span class="chip blue">mensuel</span>' : ''}</td>
         <td>${d.statut === 'recu' ? '<span class="chip ok">Reçu</span>' : '<span class="chip warn">Promesse</span>'}</td>
         <td class="actions">${d.statut === 'promesse' ? `<button class="btn btn-blue btn-sm" type="button" data-recu="${d.id}">Marquer reçu</button>` : ''}
@@ -322,6 +323,62 @@ function tDons(main, rerender) {
     if (r) { db.update('dons', r.dataset.recu, { statut: 'recu' }); toast('Don marqué comme reçu'); rerender(); }
     const del = e.target.closest('[data-deldon]');
     if (del && await confirmBox('Supprimer ce don de la liste ?', { ok: 'Supprimer' })) { db.remove('dons', del.dataset.deldon); rerender(); }
+  });
+}
+
+/* ---------- Projets ---------- */
+function tProjets(main, rerender) {
+  const projets = db.data.projets.slice().sort((a, b) => b.date.localeCompare(a.date));
+  main.innerHTML = `
+    <div class="spread"><h2>Projets</h2><button class="btn btn-primary btn-sm" type="button" id="p-add"><i data-lucide="plus"></i>Nouveau projet</button></div>
+    <p class="muted small">Chaque projet affiche sa jauge de collecte sur le site. Le montant collecté = montant déjà réuni (saisi ici) + dons reçus affectés au projet.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Projet</th><th>Collecte</th><th>État</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>${projets.map((p) => { const c = regles.collecteProjet(p); return `<tr>
+        <td><b>${esc(p.titre)}</b>${exChip(p)}<div class="sub">${esc(p.lieu || 'Lieu non précisé')}</div></td>
+        <td class="num">${fmtEUR(c)}${p.objectif ? ` / ${fmtEUR(p.objectif)}<div class="sub">${Math.round((c / p.objectif) * 100)} %</div>` : ''}</td>
+        <td>${p.statut === 'termine' ? '<span class="chip ok">Réalisé</span>' : p.statut === 'brouillon' ? '<span class="chip">Brouillon</span>' : '<span class="chip blue">En cours</span>'}</td>
+        <td class="actions"><button class="icon-btn" type="button" data-editp="${p.id}" aria-label="Modifier"><i data-lucide="pencil"></i></button></td></tr>`; }).join('') || '<tr><td colspan="4" class="empty">Aucun projet.</td></tr>'}</tbody>
+    </table></div>`;
+  main.querySelector('#p-add').addEventListener('click', () => projetForm(null, rerender));
+  main.addEventListener('click', (e) => {
+    const ed = e.target.closest('[data-editp]');
+    if (ed) projetForm(db.find('projets', ed.dataset.editp), rerender);
+  });
+}
+
+function projetForm(p, rerender) {
+  const isNew = !p;
+  p = p || { titre: '', lieu: '', resume: '', objectif: 0, collecteInitiale: 0, image: '', couleur: 'bleu', icon: 'heart-handshake', statut: 'en-cours', date: todayISO() };
+  let image = p.image;
+  const icones = { 'heart-handshake': 'Solidarité', hospital: 'Santé', sprout: 'Agriculture', backpack: 'École', utensils: 'Alimentation', droplets: 'Eau', trees: 'Environnement', baby: 'Enfance' };
+  const modal = openModal(`${modalHead(isNew ? 'Nouveau projet' : 'Modifier le projet')}
+    <form class="form" id="pjf">
+      <div class="field"><label for="pj-titre">Titre</label><input id="pj-titre" name="titre" maxlength="70" value="${esc(p.titre)}" required></div>
+      <div class="field"><label for="pj-resume">Résumé</label><textarea id="pj-resume" name="resume" maxlength="260" rows="3">${esc(p.resume)}</textarea></div>
+      <div class="form-grid">
+        <div class="field"><label for="pj-lieu">Lieu (village, pays)</label><input id="pj-lieu" name="lieu" value="${esc(p.lieu)}"></div>
+        <div class="field"><label for="pj-obj">Objectif (€)</label><input id="pj-obj" name="objectif" type="number" min="0" value="${p.objectif}"></div>
+        <div class="field"><label for="pj-init">Déjà réuni hors site (€)</label><input id="pj-init" name="collecteInitiale" type="number" min="0" value="${p.collecteInitiale}"></div>
+        <div class="field"><label for="pj-statut">État</label><select id="pj-statut" name="statut">${opt({ 'en-cours': 'En cours', termine: 'Réalisé', brouillon: 'Brouillon (masqué)' }, p.statut)}</select></div>
+        <div class="field"><label for="pj-icon">Pictogramme</label><select id="pj-icon" name="icon">${opt(icones, p.icon)}</select></div>
+        <div class="field"><label for="pj-coul">Couleur</label><select id="pj-coul" name="couleur">${opt({ bleu: 'Bleu', rouge: 'Rouge', vert: 'Vert', or: 'Or' }, p.couleur)}</select></div>
+      </div>
+      <div class="field"><label for="pj-img">Photo du projet</label><input id="pj-img" type="file" accept="image/*"></div>
+      <div class="spread">${isNew ? '<span></span>' : '<button class="btn btn-danger btn-sm" type="button" id="pj-del"><i data-lucide="trash-2"></i>Supprimer</button>'}
+        <div class="row"><button class="btn btn-ghost" type="button" data-dismiss>Annuler</button><button class="btn btn-primary" type="submit">Enregistrer</button></div></div>
+    </form>`);
+  modal.el.querySelector('#pj-img').addEventListener('change', async (e) => { if (e.target.files[0]) image = await readFileAsDataURL(e.target.files[0], 1200); });
+  modal.el.querySelector('#pjf').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const d = { ...formData(e.target), image };
+    d.objectif = Number(d.objectif) || 0; d.collecteInitiale = Number(d.collecteInitiale) || 0;
+    if (isNew) db.insert('projets', { ...d, date: todayISO(), exemple: false }); else db.update('projets', p.id, d);
+    modal.close(); toast('Projet enregistré'); rerender();
+  });
+  modal.el.querySelector('#pj-del')?.addEventListener('click', async () => {
+    modal.close();
+    if (await confirmBox(`Supprimer le projet « ${p.titre} » ? Les dons déjà affectés restent dans la liste des dons.`, { ok: 'Supprimer' })) { db.remove('projets', p.id); rerender(); }
   });
 }
 
@@ -635,7 +692,7 @@ function tMessages(main, rerender) {
 /* ---------- Paramètres ---------- */
 function tParametres(main, rerender) {
   const s = db.data.settings;
-  const nbEx = ['membres', 'cotisations', 'dons', 'evenements', 'flashs', 'medias', 'instances', 'messages'].reduce((n, c) => n + db.data[c].filter((x) => x.exemple).length, 0);
+  const nbEx = ['membres', 'cotisations', 'dons', 'evenements', 'flashs', 'medias', 'instances', 'messages', 'projets'].reduce((n, c) => n + db.data[c].filter((x) => x.exemple).length, 0);
   main.innerHTML = `<h2>Paramètres</h2>
     <form class="panel form" id="sf">
       <h3>Identité de l’association</h3>
@@ -654,6 +711,13 @@ function tParametres(main, rerender) {
         <div class="field"><label for="sf-entree">Droit d’entrée bienfaiteur (€)</label><input id="sf-entree" name="c_bienfaiteurEntree" type="number" min="0" value="${s.cotisations.bienfaiteurEntree}"></div>
         <div class="field"><label for="sf-morale">Personne morale (€)</label><input id="sf-morale" name="c_morale" type="number" min="0" value="${s.cotisations.morale}"></div>
       </div>
+      <h3>Photo d’accueil</h3>
+      <div class="row">
+        ${s.heroImage ? `<img src="${esc(s.heroImage)}" alt="Photo d’accueil actuelle" style="width:160px;aspect-ratio:16/9;object-fit:cover;border-radius:10px">` : '<span class="muted small">Aucune photo : l’accueil affiche un fond aux couleurs du logo.</span>'}
+        <label class="btn btn-ghost btn-sm" for="sf-hero"><i data-lucide="image-plus"></i>${s.heroImage ? 'Changer' : 'Choisir une photo'}</label><input id="sf-hero" type="file" accept="image/*" hidden>
+        ${s.heroImage ? '<button class="btn btn-ghost btn-sm" type="button" id="sf-hero-del">Retirer</button>' : ''}
+      </div>
+      <p class="hint small muted">Une photo de terrain en format paysage (enfants, bénévoles, distribution) donne beaucoup de force à la page d’accueil.</p>
       <h3>Paiement en ligne (HelloAsso)</h3>
       <div class="form-grid">
         <div class="field"><label for="sf-ha-adh">Lien de la campagne d’adhésion</label><input id="sf-ha-adh" name="helloassoAdhesion" type="url" placeholder="https://www.helloasso.com/associations/…/adhesions/…" value="${esc(s.helloassoAdhesion)}"></div>
@@ -684,6 +748,12 @@ function tParametres(main, rerender) {
     window.dispatchEvent(new Event('hbw:refresh-chrome'));
     toast('Paramètres enregistrés'); rerender();
   });
+  main.querySelector('#sf-hero').addEventListener('change', async (e) => {
+    if (!e.target.files[0]) return;
+    s.heroImage = await readFileAsDataURL(e.target.files[0], 1800);
+    toast(db.save() ? 'Photo d’accueil enregistrée' : 'Photo trop lourde pour le stockage du navigateur'); rerender();
+  });
+  main.querySelector('#sf-hero-del')?.addEventListener('click', () => { s.heroImage = ''; db.save(); rerender(); });
   main.querySelector('#x-export').addEventListener('click', () => download(`sauvegarde-hbw-${todayISO()}.json`, JSON.stringify(db.data, null, 2), 'application/json'));
   main.querySelector('#x-import').addEventListener('change', async (e) => {
     const file = e.target.files[0];

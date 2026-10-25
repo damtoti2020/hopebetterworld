@@ -9,6 +9,7 @@ import { renderAdmin } from './admin.js';
 const PAGES = {
   accueil: { label: 'Accueil', icon: 'house', render: pageAccueil },
   actions: { label: 'Nos actions', icon: 'heart-handshake', render: pageActions },
+  projets: { label: 'Projets', icon: 'target', render: pageProjets },
   flash: { label: 'Flash vidéos', icon: 'clapperboard', render: pageFlash },
   agenda: { label: 'Agenda', icon: 'calendar-days', render: pageAgenda },
   association: { label: "L'association", icon: 'landmark', render: pageAssociation },
@@ -17,11 +18,12 @@ const PAGES = {
   contact: { label: 'Contact', icon: 'mail', render: pageContact },
   gestion: { label: 'Espace gestion', icon: 'lock', render: (el) => renderAdmin(el) },
 };
-const MAIN_NAV = ['actions', 'flash', 'agenda', 'association', 'adherer', 'contact'];
+const MAIN_NAV = ['actions', 'projets', 'flash', 'agenda', 'association', 'adherer'];
 const TABS = ['accueil', 'flash', 'don', 'agenda', 'adherer'];
 const ACTION_COLORS = ['var(--red)', 'var(--blue)', 'var(--oxblood)', 'var(--blue)', 'var(--green)', 'var(--green)', 'var(--red)', 'var(--blue)'];
 
 const S = () => db.data.settings;
+let projetChoisi = '';
 
 /* ---------- Navigation ---------- */
 function currentPage() {
@@ -180,36 +182,97 @@ function bindCommon(el) {
 }
 
 /* ---------- Pages ---------- */
+function projetCard(p) {
+  const collecte = regles.collecteProjet(p);
+  const pct = p.objectif ? Math.min(100, Math.round((collecte / p.objectif) * 100)) : 0;
+  const fini = p.statut === 'termine';
+  return `<article class="projet">
+    <div class="projet-media flash-${esc(p.couleur || 'bleu')}">
+      ${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : `<span class="projet-ico"><i data-lucide="${esc(p.icon || 'heart-handshake')}"></i></span>`}
+      ${p.lieu ? `<span class="tag"><i data-lucide="map-pin"></i>${esc(p.lieu)}</span>` : ''}
+      ${fini ? '<span class="tag tag-ok">Réalisé</span>' : ''}
+    </div>
+    <div class="projet-body">
+      <h3>${esc(p.titre)}</h3>
+      <p class="muted">${esc(p.resume)}</p>
+      ${p.objectif ? `<div class="jauge" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Collecte : ${pct} %"><i style="width:${pct}%"></i></div>
+      <div class="spread small"><span><b class="num">${fmtEUR(collecte)}</b> collectés</span><span class="muted num">objectif ${fmtEUR(p.objectif)}</span></div>` : ''}
+      ${fini ? '' : `<a class="btn btn-primary btn-sm" href="#don" data-soutenir="${esc(p.id)}"><i data-lucide="heart"></i>Soutenir ce projet</a>`}
+    </div>
+  </article>`;
+}
+
+function bindProjets(el) {
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-soutenir]');
+    if (b) projetChoisi = b.dataset.soutenir;
+  });
+}
+
 function pageAccueil(el) {
   const s = S();
   const d = db.data;
   const membres = d.membres.filter((m) => m.statut === 'agree').length;
   const flashs = d.flashs.filter((f) => f.publie).sort((a, b) => b.date.localeCompare(a.date));
   const events = upcomingEvents(3);
+  const publics = d.projets.filter((p) => p.statut !== 'brouillon');
+  const projets = publics.filter((p) => p.statut === 'en-cours').slice(0, 3);
+  const annees = new Date().getFullYear() - 2019;
+  const totalProjets = publics.reduce((t, p) => t + regles.collecteProjet(p), 0);
   el.innerHTML = `
-  <section class="hero">
-    <div class="wrap">
-      <div class="stack" style="gap:18px">
+  <section class="hero2 ${s.heroImage ? 'has-photo' : ''}">
+    ${s.heroImage ? `<img class="hero2-photo" src="${esc(s.heroImage)}" alt="">` : '<span class="hero2-glow" aria-hidden="true"></span>'}
+    <div class="wrap hero2-inner">
+      <div class="stack" style="gap:20px;max-width:720px">
         <span class="hero-stripes" aria-hidden="true"><i></i><i></i><i></i></span>
-        <h1>Œuvrer pour <span class="red">l’épanouissement</span> des communautés <span class="blue">urbaines et rurales</span></h1>
-        <p class="lead">${esc(s.nom)} (${esc(s.sigle)}) porte assistance aux personnes les plus démunies : alimentation, santé, éducation, droits de l’enfant, environnement et agriculture bio.</p>
+        <h1>Œuvrer pour l’épanouissement des communautés <span class="sun">urbaines et rurales</span></h1>
+        <p class="hero2-lead">Alimentation, santé, éducation, droits de l’enfant, environnement et agriculture bio : ${esc(s.sigle)} agit depuis 2019 auprès des personnes les plus démunies.</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="#don"><i data-lucide="heart"></i>Faire un don</a>
-          <a class="btn btn-ghost" href="#adherer"><i data-lucide="user-plus"></i>Devenir membre</a>
+          <a class="btn btn-primary btn-lg" href="#don"><i data-lucide="heart"></i>Faire un don</a>
+          <a class="btn btn-light btn-lg" href="#projets"><i data-lucide="target"></i>Voir nos projets</a>
         </div>
-        <div class="idcard"><span>Association loi 1901</span><span>RNA <b>${esc(s.rna)}</b></span><span>SIRET <b>${esc(s.siret)}</b></span></div>
       </div>
-      <div class="hero-seal"><span class="ring" aria-hidden="true"></span><img src="img/logo.jpg" alt="Logo Hope Better World : une poignée de main sous une carte du monde entourée de lauriers"></div>
+      <img class="hero2-seal" src="img/logo.jpg" alt="Logo Hope Better World">
+    </div>
+  </section>
+
+  <section class="impact">
+    <div class="wrap impact-grid">
+      <div><b class="num">${annees}</b><span>années d’action</span></div>
+      <div><b class="num">${membres}</b><span>membres engagés</span></div>
+      <div><b class="num">${publics.length}</b><span>projets solidaires</span></div>
+      <div><b class="num">${fmtEUR(totalProjets)}</b><span>collectés pour nos projets</span></div>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap">
-      <div class="spread" style="margin-bottom:20px">
-        ${sectionHead('Flash vidéos', 'En direct du terrain').replace('margin-bottom:28px', '')}
+      <div class="spread" style="margin-bottom:24px;align-items:end">
+        ${sectionHead('Nos projets', 'Votre don, un projet concret', 'Chaque projet a un objectif chiffré. Suivez l’avancement de la collecte et choisissez celui que vous soutenez.')}
+        <a class="btn btn-ghost btn-sm" href="#projets">Tous les projets<i data-lucide="arrow-right"></i></a>
+      </div>
+      ${projets.length ? `<div class="projets-grid">${projets.map(projetCard).join('')}</div>` : '<p class="muted">Les prochains projets seront bientôt présentés ici.</p>'}
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="wrap">
+      <div class="spread" style="margin-bottom:20px;align-items:end">
+        ${sectionHead('Flash vidéos', 'En direct du terrain')}
         <a class="btn btn-ghost btn-sm" href="#flash">Tout voir<i data-lucide="arrow-right"></i></a>
       </div>
       ${flashs.length ? `<div class="flash-rail">${flashs.map(flashCard).join('')}</div>` : '<p class="muted">Les premières vidéos arrivent bientôt.</p>'}
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      ${sectionHead('Comment agir', 'Trois façons de nous rejoindre')}
+      <div class="agir">
+        <a class="agir-card agir-red" href="#don"><i data-lucide="heart"></i><b>Donner</b><span>Ponctuellement ou chaque mois, pour un projet précis ou pour l’ensemble de nos actions.</span><em>Faire un don<i data-lucide="arrow-right"></i></em></a>
+        <a class="agir-card agir-blue" href="#adherer"><i data-lucide="user-plus"></i><b>Adhérer</b><span>Devenez membre, votez en assemblée générale et participez aux décisions.</span><em>Devenir membre<i data-lucide="arrow-right"></i></em></a>
+        <a class="agir-card agir-green" href="#agenda"><i data-lucide="hand-heart"></i><b>Agir sur le terrain</b><span>Collectes, ateliers, chantiers : rejoignez-nous lors de nos prochains événements.</span><em>Voir l’agenda<i data-lucide="arrow-right"></i></em></a>
+      </div>
     </div>
   </section>
 
@@ -222,26 +285,33 @@ function pageAccueil(el) {
   </section>
 
   <section class="section">
-    <div class="wrap split">
-      <div class="stack" style="gap:14px">
+    <div class="wrap">
+      <div class="spread" style="margin-bottom:20px;align-items:end">
         ${sectionHead('Agenda', 'Prochains rendez-vous')}
-        ${events.length ? events.map(eventItem).join('') : '<p class="muted">Aucun événement programmé pour le moment.</p>'}
-        <a class="btn btn-ghost" href="#agenda" style="align-self:flex-start">Ouvrir le calendrier<i data-lucide="arrow-right"></i></a>
+        <a class="btn btn-ghost btn-sm" href="#agenda">Calendrier<i data-lucide="arrow-right"></i></a>
       </div>
-      <div class="panel stack" style="gap:16px">
-        <span class="eyebrow">Ensemble</span>
-        <h3>Une communauté qui grandit</h3>
-        <div class="stats">
-          <div class="stat"><b>${membres}</b><span>membres</span></div>
-          <div class="stat"><b>${upcomingEvents().length}</b><span>événements à venir</span></div>
-          <div class="stat"><b>8</b><span>domaines d’action</span></div>
-          <div class="stat"><b>2019</b><span>année de création</span></div>
-        </div>
-        <a class="btn btn-blue" href="#adherer">Rejoindre l’association</a>
-      </div>
+      <div class="events-grid">${events.length ? events.map(eventItem).join('') : '<p class="muted">Aucun événement programmé pour le moment.</p>'}</div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="wrap spread">
+      <div class="stack" style="gap:6px"><h2>Ensemble, pour un monde meilleur</h2><p>Association loi 1901 · RNA ${esc(s.rna)} · SIRET ${esc(s.siret)}</p></div>
+      <div class="row"><a class="btn btn-light" href="#adherer">Adhérer</a><a class="btn btn-primary" href="#don">Faire un don</a></div>
     </div>
   </section>`;
   bindCommon(el);
+  bindProjets(el);
+}
+
+function pageProjets(el) {
+  const projets = db.data.projets.filter((p) => p.statut !== 'brouillon').sort((a, b) => (a.statut === 'termine') - (b.statut === 'termine') || b.date.localeCompare(a.date));
+  el.innerHTML = `<section class="section"><div class="wrap">
+    ${sectionHead('Projets', 'Nos projets solidaires', 'Santé, alimentation, éducation, agriculture : voici les projets que nous menons, leur objectif de collecte et leur avancement.')}
+    ${projets.length ? `<div class="projets-grid">${projets.map(projetCard).join('')}</div>` : '<div class="panel empty">Aucun projet publié pour le moment.</div>'}
+    <div class="notice" style="margin-top:24px"><i data-lucide="info"></i><span>Vous préférez soutenir l’ensemble de nos actions ? <a href="#don">Faites un don libre</a>, le bureau l’affectera là où le besoin est le plus urgent.</span></div>
+  </div></section>`;
+  bindProjets(el);
 }
 
 function actionCard(a, i) {
@@ -436,6 +506,7 @@ function pageAdherer(el) {
 function pageDon(el) {
   const s = S();
   const montants = [10, 20, 50, 100, 200];
+  const projetsOuverts = db.data.projets.filter((p) => p.statut === 'en-cours');
   el.innerHTML = `<section class="section"><div class="wrap split">
     <form class="panel form" id="don-form" novalidate>
       ${sectionHead('Soutenir', 'Faire un don', 'Votre don finance directement nos actions : aide alimentaire, matériel médical, fournitures scolaires, projets agricoles.')}
@@ -449,6 +520,7 @@ function pageDon(el) {
           <label class="choice"><input type="radio" name="montantChoix" value="autre"><span class="box">Autre</span></label></div>
       </fieldset>
       <div class="field" id="autre-field" hidden><label for="don-autre">Montant libre (€)</label><input id="don-autre" name="montantLibre" type="number" min="1" step="1" inputmode="numeric"></div>
+      ${projetsOuverts.length ? `<div class="field"><label for="don-projet">Affecter mon don</label><select id="don-projet" name="projetId"><option value="">À l’ensemble des actions de l’association</option>${projetsOuverts.map((p) => `<option value="${esc(p.id)}" ${p.id === projetChoisi ? 'selected' : ''}>${esc(p.titre)}</option>`).join('')}</select></div>` : ''}
       <p class="impact notice" id="don-impact"></p>
       <div class="form-grid">
         <div class="field"><label for="don-nom">Nom et prénom</label><input id="don-nom" name="nom" autocomplete="name"></div>
@@ -491,7 +563,8 @@ function pageDon(el) {
     const err = el.querySelector('#don-error');
     if (m < 1) { err.textContent = 'Indiquez un montant d’au moins 1 €.'; return; }
     if (d.email && !/^\S+@\S+\.\S+$/.test(d.email)) { err.textContent = 'L’adresse e-mail ne semble pas valide.'; return; }
-    db.insert('dons', { nom: d.anonyme ? 'Anonyme' : (d.nom || 'Anonyme'), email: d.email, montant: m, frequence: freq, date: todayISO(), statut: 'promesse', mode: s.helloassoDon ? 'helloasso' : 'a-definir', message: d.message, anonyme: d.anonyme, exemple: false });
+    db.insert('dons', { nom: d.anonyme ? 'Anonyme' : (d.nom || 'Anonyme'), email: d.email, montant: m, frequence: freq, date: todayISO(), statut: 'promesse', mode: s.helloassoDon ? 'helloasso' : 'a-definir', message: d.message, anonyme: d.anonyme, projetId: d.projetId || '', exemple: false });
+    projetChoisi = '';
     el.querySelector('.wrap').innerHTML = `<div class="panel stack" style="gap:16px;max-width:640px">
       <div class="notice ok"><i data-lucide="heart"></i><b>Merci pour votre générosité${d.nom && !d.anonyme ? ', ' + esc(d.nom.split(' ')[0]) : ''} !</b></div>
       <p>Don ${freq === 'mensuel' ? 'mensuel' : 'ponctuel'} de <b class="num">${fmtEUR(m)}</b>.</p>
