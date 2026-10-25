@@ -136,7 +136,31 @@ function seed() {
   };
 }
 
+const COLLECTIONS = ['membres', 'cotisations', 'dons', 'evenements', 'flashs', 'medias', 'instances', 'messages', 'projets'];
+
+/* Deux modes :
+ * - « local » : démonstration, données dans le navigateur (GitHub Pages, aperçu) ;
+ * - « serveur » : API PHP + MySQL (api/), utilisée dès qu'elle répond (Hostinger). */
+let mode = 'local';
+let user = null;
 let memory = null;
+let baseline = null;
+
+/* Complète les données enregistrées par une version antérieure du site. */
+function migrate(d) {
+  if (d.settings.facebook === undefined) d.settings.facebook = FACEBOOK;
+  if (d.settings.youtube === undefined) d.settings.youtube = YOUTUBE;
+  if (d.settings.email === 'hopebetterword@gmail.com') d.settings.email = EMAIL;
+  if (d.settings.heroImage === undefined) d.settings.heroImage = '';
+  if (!Array.isArray(d.projets)) d.projets = seedProjets();
+}
+
+/* Données de départ sur un serveur neuf : l'association et ses fondateurs, sans exemples. */
+function seedServeur() {
+  const d = seed();
+  for (const col of COLLECTIONS) d[col] = d[col].filter((x) => !x.exemple);
+  return d;
+}
 
 function load() {
   if (memory) return memory;
@@ -149,24 +173,113 @@ function load() {
   return memory;
 }
 
-/* Complète les données enregistrées par une version antérieure du site. */
-function migrate(d) {
-  if (d.settings.facebook === undefined) d.settings.facebook = FACEBOOK;
-  if (d.settings.youtube === undefined) d.settings.youtube = YOUTUBE;
-  if (d.settings.email === 'hopebetterword@gmail.com') d.settings.email = EMAIL;
-  if (d.settings.heroImage === undefined) d.settings.heroImage = '';
-  if (!Array.isArray(d.projets)) d.projets = seedProjets();
+/* Photographie de l'état déjà enregistré sur le serveur, pour n'envoyer que les différences. */
+function snapshot() {
+  const b = { settings: JSON.stringify(memory.settings) };
+  for (const col of COLLECTIONS) b[col] = new Map(memory[col].map((x) => [x.id, JSON.stringify(x)]));
+  return b;
 }
 
+function diff() {
+  const out = { upserts: {}, deletes: {} };
+  let n = 0;
+  const settings = JSON.stringify(memory.settings);
+  if (settings !== baseline.settings) { out.settings = memory.settings; n++; }
+  for (const col of COLLECTIONS) {
+    const before = baseline[col];
+    const ids = new Set();
+    for (const rec of memory[col]) {
+      ids.add(rec.id);
+      if (before.get(rec.id) !== JSON.stringify(rec)) { (out.upserts[col] ||= []).push(rec); n++; }
+    }
+    for (const id of before.keys()) if (!ids.has(id)) { (out.deletes[col] ||= []).push(id); n++; }
+  }
+  return n ? out : null;
+}
+
+async function api(route, body) {
+  const res = await fetch(`api/?r=${route}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-HBW': '1' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    credentials: 'same-origin',
+  });
+  let json = null;
+  try { json = await res.json(); } catch (e) { /* réponse non JSON */ }
+  if (!res.ok || !json?.ok) throw new Error(json?.error || `Erreur ${res.status}`);
+  return json;
+}
+
+function adopt(data) {
+  memory = data;
+  const vide = !memory.settings;
+  if (vide) {
+    const s = seedServeur();
+    for (const k of Object.keys(s)) if (k === 'settings' || !Array.isArray(memory[k]) || !memory[k].length) memory[k] = s[k];
+  }
+  for (const col of COLLECTIONS) memory[col] ||= [];
+  migrate(memory);
+  baseline = snapshot();
+  /* Premier passage d'un compte du bureau sur un serveur neuf : on enregistre l'association. */
+  if (vide && user) {
+    baseline = { settings: '', ...Object.fromEntries(COLLECTIONS.map((c) => [c, new Map()])) };
+    persist();
+  }
+}
+
+let queue = Promise.resolve();
 function persist() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(memory)); return true; }
-  catch (e) { return false; }
+  if (mode === 'local') {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(memory)); return true; }
+    catch (e) { return false; }
+  }
+  const changes = diff();
+  if (!changes) return true;
+  baseline = snapshot();
+  queue = queue.then(() => api('sync', changes)).then(() => null, (e) => {
+    window.dispatchEvent(new CustomEvent('hbw:sync-error', { detail: e.message }));
+    return e.message;
+  });
+  return true;
 }
 
 const db = {
   get data() { return load(); },
+  get mode() { return mode; },
+  get user() { return user; },
+  /* Détecte l'API ; sans réponse, le site reste en mode démonstration. */
+  async init() {
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 4000);
+      const res = await fetch('api/?r=ping', { signal: ctl.signal, credentials: 'same-origin' });
+      clearTimeout(timer);
+      const ping = res.ok ? await res.json() : null;
+      if (!ping?.ok) return;
+      mode = 'serveur';
+      const pub = await api('public');
+      user = pub.user;
+      if (user) adopt((await api('data')).data); else adopt(pub.data);
+    } catch (e) {
+      mode = 'local';
+    }
+  },
+  async login(email, password) {
+    const r = await api('login', { email, password });
+    user = r.user;
+    adopt(r.data);
+  },
+  async logout() {
+    await api('logout', {});
+    user = null;
+    adopt((await api('public')).data);
+  },
+  users(body) { return api('users', body); },
+  password(actuel, nouveau) { return api('password', { actuel, nouveau }); },
+  /* Attend que les enregistrements en cours soient arrivés sur le serveur ; renvoie l'erreur éventuelle. */
+  flush() { return queue; },
   save() { return persist(); },
-  insert(col, item) { load()[col].push({ id: uid(), ...item }); persist(); },
+  insert(col, item) { load()[col].push({ id: uid(), ...item }); return persist(); },
   update(col, id, patch) {
     const it = load()[col].find((x) => x.id === id);
     if (it) Object.assign(it, patch);
@@ -178,15 +291,14 @@ const db = {
   reset() { memory = seed(); persist(); },
   clearExamples() {
     const d = load();
-    for (const col of ['membres', 'cotisations', 'dons', 'evenements', 'flashs', 'medias', 'instances', 'messages', 'projets']) {
-      d[col] = d[col].filter((x) => !x.exemple);
-    }
+    for (const col of COLLECTIONS) d[col] = d[col].filter((x) => !x.exemple);
     persist();
   },
   importJSON(text) {
     const parsed = JSON.parse(text);
     if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.membres)) throw new Error('Fichier non reconnu');
     migrate(parsed);
+    for (const col of COLLECTIONS) parsed[col] ||= [];
     memory = parsed;
     persist();
   },
@@ -204,6 +316,7 @@ const regles = {
     return c[categorie] ?? 0;
   },
   collecteProjet(projet) {
+    if (projet.collecteDons !== undefined) return Number(projet.collecteInitiale || 0) + Number(projet.collecteDons);
     const dons = db.data.dons.filter((d) => d.projetId === projet.id && d.statut === 'recu').reduce((s, d) => s + Number(d.montant), 0);
     return Number(projet.collecteInitiale || 0) + dons;
   },

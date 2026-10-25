@@ -157,11 +157,12 @@ function openEvent(id) {
       ${complet ? '<div class="notice warn"><i data-lucide="users"></i>Cet événement est complet.</div>' : ''}
     </div>`);
   m.el.querySelector('#ev-ics').addEventListener('click', () => download(`${e.titre}.ics`, ics(e), 'text/calendar'));
-  m.el.querySelector('#ev-form').addEventListener('submit', (ev) => {
+  m.el.querySelector('#ev-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const d = formData(ev.target);
     if (e.inscrits.some((i) => i.email.toLowerCase() === d.email.toLowerCase())) { toast('Vous êtes déjà inscrit·e à cet événement'); return; }
     db.update('evenements', e.id, { inscrits: [...e.inscrits, { nom: d.nom, email: d.email, date: todayISO() }] });
+    if (await db.flush()) return;
     m.close();
     toast('Inscription enregistrée, à bientôt !');
   });
@@ -477,7 +478,7 @@ function pageAdherer(el) {
   const form = el.querySelector('#adh-form');
   const rs = el.querySelector('#rs-field');
   form.addEventListener('change', () => { rs.hidden = form.categorie.value !== 'morale'; });
-  form.addEventListener('submit', (ev) => {
+  form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const d = formData(form);
     const err = el.querySelector('#adh-error');
@@ -489,6 +490,8 @@ function pageAdherer(el) {
       categorie: d.categorie, raisonSociale: d.raisonSociale || '', statut: 'attente', fonction: '', motivation: d.motivation,
       dateDemande: todayISO(), dateAgrement: '', motifRadiation: '', exemple: false,
     });
+    const echec = await db.flush();
+    if (echec) { err.textContent = echec; return; }
     const montant = regles.montantCotisation(d.categorie) + (d.categorie === 'bienfaiteur' ? s.cotisations.bienfaiteurEntree : 0);
     el.querySelector('.wrap').innerHTML = `<div class="panel stack" style="gap:16px;max-width:640px">
       <div class="notice ok"><i data-lucide="check-circle-2"></i><b>Merci ${esc(d.prenom)}, votre demande d’adhésion est bien enregistrée.</b></div>
@@ -556,7 +559,7 @@ function pageDon(el) {
   form.addEventListener('input', refresh);
   form.addEventListener('change', refresh);
   refresh();
-  form.addEventListener('submit', (ev) => {
+  form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const d = formData(form);
     const m = montant();
@@ -564,6 +567,8 @@ function pageDon(el) {
     if (m < 1) { err.textContent = 'Indiquez un montant d’au moins 1 €.'; return; }
     if (d.email && !/^\S+@\S+\.\S+$/.test(d.email)) { err.textContent = 'L’adresse e-mail ne semble pas valide.'; return; }
     db.insert('dons', { nom: d.anonyme ? 'Anonyme' : (d.nom || 'Anonyme'), email: d.email, montant: m, frequence: freq, date: todayISO(), statut: 'promesse', mode: s.helloassoDon ? 'helloasso' : 'a-definir', message: d.message, anonyme: d.anonyme, projetId: d.projetId || '', exemple: false });
+    const echec = await db.flush();
+    if (echec) { err.textContent = echec; return; }
     projetChoisi = '';
     el.querySelector('.wrap').innerHTML = `<div class="panel stack" style="gap:16px;max-width:640px">
       <div class="notice ok"><i data-lucide="heart"></i><b>Merci pour votre générosité${d.nom && !d.anonyme ? ', ' + esc(d.nom.split(' ')[0]) : ''} !</b></div>
@@ -605,10 +610,11 @@ function pageContact(el) {
     </aside>
   </div></section>`;
   el.querySelector('#copy-mail').addEventListener('click', (e) => copy(s.email, e.currentTarget));
-  el.querySelector('#ct-form').addEventListener('submit', (ev) => {
+  el.querySelector('#ct-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const d = formData(ev.target);
     db.insert('messages', { ...d, date: todayISO(), lu: false, exemple: false });
+    if (await db.flush()) return;
     ev.target.reset();
     toast('Message envoyé. Nous vous répondrons rapidement.');
   });
@@ -638,4 +644,6 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
+window.addEventListener('hbw:sync-error', (e) => toast(`Enregistrement impossible : ${e.detail}`));
+await db.init();
 route();

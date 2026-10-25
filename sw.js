@@ -1,5 +1,5 @@
 /* Service worker : le site reste consultable hors connexion une fois visité. */
-const CACHE = 'hbw-v2';
+const CACHE = 'hbw-v3';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'js/app.js', 'js/admin.js', 'js/data.js', 'js/ui.js', 'js/statuts.js', 'js/vendor/lucide.min.js',
   'img/logo.jpg', 'img/icon-192.png', 'manifest.webmanifest',
@@ -18,6 +18,8 @@ self.addEventListener('activate', (e) => {
 /* Réseau d'abord (contenu toujours à jour), cache en secours. */
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  /* Les données de l'API ne sont jamais mises en cache (informations personnelles). */
+  if (new URL(e.request.url).pathname.includes('/api/')) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

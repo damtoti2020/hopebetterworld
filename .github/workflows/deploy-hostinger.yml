@@ -31,3 +31,5 @@ jobs:
             README.md
             docs/*.md
             .nojekyll
+            api/config.php
+            **/*.sqlite
