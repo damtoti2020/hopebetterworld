@@ -26,8 +26,10 @@ const nomComplet = (m) => (m.categorie === 'morale' && m.raisonSociale ? m.raiso
 const exChip = (x) => (x.exemple ? ' <span class="chip ex">exemple</span>' : '');
 const opt = (obj, sel) => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(typeof v === 'string' ? v : v.label)}</option>`).join('');
 
+const estConnecte = () => (db.mode === 'serveur' ? !!db.user : unlocked);
+
 export function renderAdmin(root) {
-  if (!unlocked) return renderLogin(root);
+  if (!estConnecte()) return renderLogin(root);
   root.innerHTML = `<div class="wrap admin">
     <nav class="admin-nav" aria-label="Sections de gestion" id="admin-nav"></nav>
     <div class="admin-main" id="admin-main"></div>
@@ -44,7 +46,11 @@ function draw(root) {
     const n = t.count?.() || 0;
     return `<button type="button" data-tab="${k}" ${k === tab ? 'aria-current="true"' : ''}><i data-lucide="${t.icon}"></i>${esc(t.label)}${n ? `<span class="count">${n}</span>` : ''}</button>`;
   }).join('') + '<button type="button" id="logout"><i data-lucide="log-out"></i>Se déconnecter</button>';
-  root.querySelector('#logout').onclick = () => {
+  root.querySelector('#logout').onclick = async () => {
+    if (db.mode === 'serveur') {
+      await db.flush();
+      try { await db.logout(); } catch (e) { toast(e.message); }
+    }
     unlocked = false;
     try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* rien */ }
     renderAdmin(root);
@@ -54,6 +60,9 @@ function draw(root) {
   old.replaceWith(main);
   const rerender = () => draw(root);
   TABS[tab].render(main, rerender);
+  main.insertAdjacentHTML('afterbegin', db.mode === 'serveur'
+    ? `<p class="small muted row" style="gap:6px"><i data-lucide="cloud"></i>Connecté à la base de données en tant que ${esc(db.user.nom || db.user.email)}. Les modifications sont enregistrées pour tout le bureau.</p>`
+    : '<div class="notice warn"><i data-lucide="flask-conical"></i><span>Mode démonstration : les données restent dans ce navigateur. Sur Hostinger, le site utilisera la base de données partagée.</span></div>');
   icons();
 }
 
@@ -63,15 +72,31 @@ function renderLogin(root) {
       <span class="eyebrow">Réservé au bureau</span>
       <h2>Espace gestion</h2>
       <p class="muted">Membres, cotisations, dons, agenda, vidéos, assemblées générales et conseils d’administration.</p>
-      <div class="field"><label for="code">Code d’accès</label><input id="code" name="code" type="password" autocomplete="current-password" required></div>
+      ${db.mode === 'serveur'
+        ? `<div class="field"><label for="login-email">E-mail</label><input id="login-email" name="email" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="login-pass">Mot de passe</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>`
+        : '<div class="field"><label for="code">Code d’accès</label><input id="code" name="code" type="password" autocomplete="current-password" required></div>'}
       <p class="small muted" id="login-err" role="alert"></p>
       <button class="btn btn-blue" type="submit"><i data-lucide="lock-open"></i>Entrer</button>
-      <div class="notice"><i data-lucide="info"></i><span>Version de démonstration : le code est <b>hbw2026</b>. Il se change dans Paramètres. En production, chaque membre du bureau aura son propre compte.</span></div>
+      ${db.mode === 'serveur' ? '' : '<div class="notice"><i data-lucide="info"></i><span>Version de démonstration : le code est <b>hbw2026</b>. Sur le site en production, chaque membre du bureau a son propre compte.</span></div>'}
     </form>
   </div></section>`;
   icons();
-  root.querySelector('#login').addEventListener('submit', (e) => {
+  root.querySelector('#login').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (db.mode === 'serveur') {
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        await db.login(e.target.email.value.trim(), e.target.password.value);
+        window.dispatchEvent(new Event('hbw:refresh-chrome'));
+        renderAdmin(root);
+      } catch (err) {
+        root.querySelector('#login-err').textContent = err.message;
+        btn.disabled = false;
+      }
+      return;
+    }
     if (e.target.code.value === db.data.settings.codeGestion) {
       unlocked = true;
       try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (err) { /* rien */ }
@@ -689,6 +714,35 @@ function tMessages(main, rerender) {
   });
 }
 
+/* ---------- Comptes du bureau (mode serveur) ---------- */
+function comptes(main) {
+  const list = main.querySelector('#users-list');
+  const show = (users) => {
+    list.innerHTML = users.map((u) => `<div class="spread"><span><b>${esc(u.nom)}</b><br><span class="small muted">${esc(u.email)}</span></span>
+      ${u.id === db.user.id ? '<span class="chip blue">Vous</span>' : `<button class="btn btn-ghost btn-sm" type="button" data-deluser="${u.id}" data-nom="${esc(u.nom)}">Retirer</button>`}</div>`).join('');
+  };
+  db.users().then((r) => show(r.users)).catch((e) => { list.textContent = e.message; });
+  list.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-deluser]');
+    if (!b) return;
+    if (!(await confirmBox(`Retirer l’accès de ${b.dataset.nom} à l’espace gestion ?`, { ok: 'Retirer' }))) return;
+    try { show((await db.users({ action: 'delete', id: Number(b.dataset.deluser) })).users); toast('Accès retiré'); } catch (err) { toast(err.message); }
+  });
+  main.querySelector('#uf').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      show((await db.users({ action: 'add', ...formData(e.target) })).users);
+      e.target.reset();
+      toast('Compte créé');
+    } catch (err) { toast(err.message); }
+  });
+  main.querySelector('#pwf').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const d = formData(e.target);
+    try { await db.password(d.actuel, d.nouveau); e.target.reset(); toast('Mot de passe changé'); } catch (err) { toast(err.message); }
+  });
+}
+
 /* ---------- Paramètres ---------- */
 function tParametres(main, rerender) {
   const s = db.data.settings;
@@ -724,20 +778,42 @@ function tParametres(main, rerender) {
         <div class="field"><label for="sf-ha-don">Lien du formulaire de don</label><input id="sf-ha-don" name="helloassoDon" type="url" placeholder="https://www.helloasso.com/associations/…/formulaires/…" value="${esc(s.helloassoDon)}"></div>
       </div>
       <label class="check"><input type="checkbox" name="recuFiscal" id="sf-rf" ${s.recuFiscal ? 'checked' : ''}><span>L’association est habilitée à délivrer des reçus fiscaux (intérêt général reconnu). Affiche la mention de réduction d’impôt de 66 %.</span></label>
-      <h3>Accès à l’espace gestion</h3>
-      <div class="field" style="max-width:320px"><label for="sf-code">Code d’accès</label><input id="sf-code" name="codeGestion" value="${esc(s.codeGestion)}" required minlength="6"></div>
+      ${db.mode === 'serveur' ? '' : `<h3>Accès à l’espace gestion</h3>
+      <div class="field" style="max-width:320px"><label for="sf-code">Code d’accès</label><input id="sf-code" name="codeGestion" value="${esc(s.codeGestion)}" required minlength="6"></div>`}
       <button class="btn btn-primary" type="submit" style="justify-self:start">Enregistrer les paramètres</button>
     </form>
     <div class="panel stack">
       <h3>Données</h3>
-      <p class="muted small">Sauvegardez régulièrement. Dans cette version, les données restent dans ce navigateur ; la mise en ligne avec base de données partagée est décrite dans le guide de déploiement.</p>
+      <p class="muted small">${db.mode === 'serveur' ? 'Les données sont enregistrées dans la base MySQL. Téléchargez une sauvegarde de temps en temps (avant une assemblée générale, par exemple).' : 'Sauvegardez régulièrement : dans ce mode, les données restent dans ce navigateur.'}</p>
       <div class="row">
         <button class="btn btn-ghost btn-sm" type="button" id="x-export"><i data-lucide="download"></i>Sauvegarder (JSON)</button>
         <label class="btn btn-ghost btn-sm" for="x-import"><i data-lucide="upload"></i>Restaurer une sauvegarde</label><input id="x-import" type="file" accept="application/json,.json" hidden>
         ${nbEx ? `<button class="btn btn-ghost btn-sm" type="button" id="x-clear"><i data-lucide="eraser"></i>Supprimer les ${nbEx} exemples</button>` : ''}
-        <button class="btn btn-danger btn-sm" type="button" id="x-reset"><i data-lucide="rotate-ccw"></i>Réinitialiser la démo</button>
+        ${db.mode === 'serveur' ? '' : '<button class="btn btn-danger btn-sm" type="button" id="x-reset"><i data-lucide="rotate-ccw"></i>Réinitialiser la démo</button>'}
       </div>
-    </div>`;
+    </div>
+    ${db.mode === 'serveur' ? `<div class="panel stack" id="comptes">
+      <h3>Comptes du bureau</h3>
+      <div id="users-list" class="stack"><p class="muted small">Chargement…</p></div>
+      <form class="form" id="uf">
+        <b>Ajouter un compte</b>
+        <div class="form-grid">
+          <div class="field"><label for="uf-nom">Nom</label><input id="uf-nom" name="nom" required></div>
+          <div class="field"><label for="uf-email">E-mail</label><input id="uf-email" name="email" type="email" required></div>
+          <div class="field"><label for="uf-pass">Mot de passe provisoire</label><input id="uf-pass" name="password" type="text" minlength="10" required autocomplete="off"><span class="hint">10 caractères minimum, à transmettre à la personne.</span></div>
+        </div>
+        <button class="btn btn-blue btn-sm" type="submit" style="justify-self:start">Créer le compte</button>
+      </form>
+      <form class="form" id="pwf">
+        <b>Changer mon mot de passe</b>
+        <div class="form-grid">
+          <div class="field"><label for="pw-old">Mot de passe actuel</label><input id="pw-old" name="actuel" type="password" autocomplete="current-password" required></div>
+          <div class="field"><label for="pw-new">Nouveau mot de passe</label><input id="pw-new" name="nouveau" type="password" minlength="10" autocomplete="new-password" required></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="submit" style="justify-self:start">Changer le mot de passe</button>
+      </form>
+    </div>` : ''}`;
+  if (db.mode === 'serveur') comptes(main);
   main.querySelector('#sf').addEventListener('submit', (e) => {
     e.preventDefault();
     const d = formData(e.target);
@@ -764,7 +840,7 @@ function tParametres(main, rerender) {
   main.querySelector('#x-clear')?.addEventListener('click', async () => {
     if (await confirmBox('Supprimer toutes les données d’exemple (membres, dons, événements…) ? Les membres fondateurs et vos propres saisies sont conservés.', { ok: 'Supprimer les exemples' })) { db.clearExamples(); toast('Exemples supprimés'); rerender(); }
   });
-  main.querySelector('#x-reset').addEventListener('click', async () => {
+  main.querySelector('#x-reset')?.addEventListener('click', async () => {
     if (await confirmBox('Effacer toutes les données saisies et revenir à la démonstration de départ ?', { ok: 'Réinitialiser' })) { db.reset(); toast('Démo réinitialisée'); rerender(); }
   });
 }

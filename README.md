@@ -32,7 +32,7 @@ macOS et Linux (PWA), sans passer par les stores.
 
 ## Lancer le site en local
 
-Aucun outil à installer. Depuis ce dossier :
+**Mode démo** (sans base de données) :
 
 ```bash
 python3 -m http.server 8000
@@ -40,12 +40,23 @@ python3 -m http.server 8000
 
 puis ouvrir http://localhost:8000. Code de l'espace gestion en démonstration : `hbw2026`.
 
-## État actuel et étapes suivantes
+**Mode serveur** (PHP 8 avec PDO) : copier `api/config.sample.php` en `api/config.php`
+(une base SQLite suffit pour essayer, MySQL en production), puis :
 
-Cette version stocke les données **dans le navigateur** de la personne qui l'utilise : c'est une
-démonstration complète, mais les adhésions et dons saisis sur un téléphone ne sont pas visibles
-depuis un autre appareil. Pour la mise en production (base de données partagée, comptes du bureau,
-e-mails automatiques, paiement HelloAsso), voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+```bash
+php -S 127.0.0.1:8000
+```
+
+ouvrir http://127.0.0.1:8000/api/install.php pour créer le premier compte du bureau.
+
+## Deux modes
+
+Le site détecte seul s'il tourne avec l'API `api/` :
+- **démo** (GitHub Pages) : données gardées dans le navigateur, code d'accès de démonstration ;
+- **serveur** (Hostinger) : données dans MySQL, comptes du bureau par e-mail et mot de passe,
+  visiteurs limités à l'envoi des formulaires.
+
+Mise en production : voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
 
 ## Structure
 
@@ -61,4 +72,8 @@ js/vendor/lucide.min.js icônes (licence ISC)
 manifest.webmanifest    installation comme application
 sw.js                   fonctionnement hors connexion
 docs/statuts-hbw.pdf    statuts signés du 3 août 2019
+api/index.php           API (connexion, données, formulaires)
+api/lib.php             base de données, sessions, sécurité
+api/install.php         création des tables et du premier compte
+api/config.sample.php   modèle de configuration MySQL
 ```

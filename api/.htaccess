@@ -1,0 +1,5 @@
+# Fichiers internes de l'API : jamais accessibles depuis le navigateur
+<FilesMatch "^(config\.php|config\.sample\.php|lib\.php|.*\.sqlite)$">
+    Require all denied
+</FilesMatch>
+Options -Indexes
