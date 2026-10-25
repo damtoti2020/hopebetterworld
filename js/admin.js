@@ -642,6 +642,7 @@ function tParametres(main, rerender) {
       <div class="form-grid">
         <div class="field"><label for="sf-email">E-mail public</label><input id="sf-email" name="email" type="email" value="${esc(s.email)}"></div>
         <div class="field"><label for="sf-tel">Téléphone public</label><input id="sf-tel" name="tel" value="${esc(s.tel)}"></div>
+        <div class="field"><label for="sf-yt">Chaîne YouTube</label><input id="sf-yt" name="youtube" type="url" value="${esc(s.youtube || '')}"></div>
         <div class="field"><label for="sf-fb">Page Facebook</label><input id="sf-fb" name="facebook" type="url" value="${esc(s.facebook || '')}"></div>
         <div class="field"><label for="sf-siege">Siège social</label><input id="sf-siege" name="siege" value="${esc(s.siege)}"></div>
       </div>

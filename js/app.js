@@ -54,6 +54,7 @@ function renderFooter() {
       <p><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></p>
       ${s.tel ? `<p>${esc(s.tel)}</p>` : ''}
       ${s.facebook ? `<p><a href="${esc(s.facebook)}" target="_blank" rel="noopener" class="row" style="gap:8px;display:inline-flex"><i data-lucide="facebook"></i>Suivez-nous sur Facebook</a></p>` : ''}
+      ${s.youtube ? `<p><a href="${esc(s.youtube)}" target="_blank" rel="noopener" class="row" style="gap:8px;display:inline-flex"><i data-lucide="youtube"></i>Notre chaîne YouTube</a></p>` : ''}
     </div>
     <div class="stack" style="gap:6px">
       <h4>Agir avec nous</h4>
@@ -271,7 +272,7 @@ function pageFlash(el) {
   <section class="section"><div class="wrap">
     ${sectionHead('Flash vidéos', 'Nos actions en images', 'De courtes vidéos et des nouvelles du terrain. Touchez une carte pour la lire.')}
     ${flashs.length ? `<div class="flash-rail">${flashs.map(flashCard).join('')}</div>` : '<p class="muted">Aucune vidéo publiée pour le moment.</p>'}
-    ${S().facebook ? `<p style="margin-top:16px"><a class="btn btn-ghost" href="${esc(S().facebook)}" target="_blank" rel="noopener"><i data-lucide="facebook"></i>Plus de vidéos sur notre page Facebook</a></p>` : ''}
+    <p class="row" style="margin-top:16px">${S().youtube ? `<a class="btn btn-primary" href="${esc(S().youtube)}" target="_blank" rel="noopener"><i data-lucide="youtube"></i>Toutes nos vidéos sur YouTube</a>` : ''}${S().facebook ? `<a class="btn btn-ghost" href="${esc(S().facebook)}" target="_blank" rel="noopener"><i data-lucide="facebook"></i>Notre page Facebook</a>` : ''}</p>
   </div></section>
   <section class="section section-alt"><div class="wrap">
     ${sectionHead('Galerie', 'Photos de nos actions')}
@@ -350,6 +351,7 @@ function pageAssociation(el) {
       </dl>
       <a class="btn btn-ghost" href="docs/statuts-hbw.pdf" target="_blank" rel="noopener"><i data-lucide="file-text"></i>Statuts signés (PDF)</a>
       ${d.settings.facebook ? `<a class="btn btn-ghost" href="${esc(d.settings.facebook)}" target="_blank" rel="noopener"><i data-lucide="facebook"></i>Page Facebook</a>` : ''}
+      ${d.settings.youtube ? `<a class="btn btn-ghost" href="${esc(d.settings.youtube)}" target="_blank" rel="noopener"><i data-lucide="youtube"></i>Chaîne YouTube</a>` : ''}
     </div>
   </div></section>
   <section class="section section-alt"><div class="wrap">
@@ -525,6 +527,7 @@ function pageContact(el) {
         ${s.tel ? `<p><b>Téléphone</b><br>${esc(s.tel)}</p>` : ''}
       </div>
       ${s.facebook ? `<a class="btn btn-blue" href="${esc(s.facebook)}" target="_blank" rel="noopener"><i data-lucide="facebook"></i>Notre page Facebook</a>` : ''}
+      ${s.youtube ? `<a class="btn btn-primary" href="${esc(s.youtube)}" target="_blank" rel="noopener"><i data-lucide="youtube"></i>Notre chaîne YouTube</a>` : ''}
       <a class="btn btn-ghost" href="https://www.openstreetmap.org/search?query=${encodeURIComponent(s.siege)}" target="_blank" rel="noopener"><i data-lucide="map-pin"></i>Voir sur la carte</a>
     </aside>
   </div></section>`;
