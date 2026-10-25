@@ -640,7 +640,7 @@ function tParametres(main, rerender) {
     <form class="panel form" id="sf">
       <h3>Identité de l’association</h3>
       <div class="form-grid">
-        <div class="field"><label for="sf-email">E-mail public</label><input id="sf-email" name="email" type="email" value="${esc(s.email)}"><span class="hint">Le logo indique « hopebetterword » : vérifiez l’orthographe.</span></div>
+        <div class="field"><label for="sf-email">E-mail public</label><input id="sf-email" name="email" type="email" value="${esc(s.email)}"></div>
         <div class="field"><label for="sf-tel">Téléphone public</label><input id="sf-tel" name="tel" value="${esc(s.tel)}"></div>
         <div class="field"><label for="sf-fb">Page Facebook</label><input id="sf-fb" name="facebook" type="url" value="${esc(s.facebook || '')}"></div>
         <div class="field"><label for="sf-siege">Siège social</label><input id="sf-siege" name="siege" value="${esc(s.siege)}"></div>
