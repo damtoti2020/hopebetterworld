@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hope Better World</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="HOPE BETTER WORLD (H.B.W), association loi 1901 : pour un monde meilleur. Adhésion, dons, agenda et actions solidaires.">
+<meta name="theme-color" content="#d7261e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="img/icon-192.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="H.B.W">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="sr-only" href="#app">Aller au contenu</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#accueil" aria-label="Hope Better World, accueil">
+      <img src="img/logo.jpg" alt="" width="44" height="44">
+      <div><b>HOPE BETTER WORLD</b><span>Pour un monde meilleur</span></div>
+    </a>
+    <nav class="mainnav" aria-label="Navigation principale" id="mainnav"></nav>
+    <div class="header-actions">
+      <button class="icon-btn" id="install-btn" type="button" title="Installer l'application" aria-label="Installer l'application" hidden><i data-lucide="download"></i></button>
+      <a class="btn btn-primary btn-sm" href="#don" id="header-don">Faire un don</a>
+      <button class="icon-btn" id="menu-btn" type="button" aria-label="Ouvrir le menu" aria-expanded="false"><i data-lucide="menu"></i></button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer" id="drawer" hidden>
+  <div class="wrap">
+    <div class="spread" style="min-height: var(--header-h)">
+      <b class="brand">Menu</b>
+      <button class="icon-btn" id="drawer-close" type="button" aria-label="Fermer le menu"><i data-lucide="x"></i></button>
+    </div>
+    <nav id="drawernav" aria-label="Menu complet"></nav>
+  </div>
+</div>
+
+<main id="app" tabindex="-1"></main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols" id="footer-cols"></div>
+    <div class="legal" id="footer-legal"></div>
+  </div>
+</footer>
+
+<nav class="tabbar" id="tabbar" aria-label="Navigation rapide"></nav>
+<div id="modal-root"></div>
+<div id="toast-root" aria-live="polite"></div>
+
+<script src="js/vendor/lucide.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
