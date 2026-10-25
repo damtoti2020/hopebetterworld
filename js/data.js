@@ -5,6 +5,7 @@
 
 const STORAGE_KEY = 'hbw-data-v1';
 const EMAIL = 'hopebetterworld2020@gmail.com';
+const YOUTUBE = 'https://www.youtube.com/@hopebetterworld2450';
 const FACEBOOK = 'https://www.facebook.com/profile.php?id=100067997473253';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -78,6 +79,7 @@ function seed() {
       email: EMAIL,
       tel: '',
       facebook: FACEBOOK,
+      youtube: YOUTUBE,
       helloassoAdhesion: '',
       helloassoDon: '',
       cotisations: { actif: 20, bienfaiteur: 50, bienfaiteurEntree: 10, morale: 100, fondateur: 20 },
@@ -133,6 +135,7 @@ function load() {
   } catch (e) { /* stockage indisponible : on reste en mémoire */ }
   if (!memory || memory.version !== 1) memory = seed();
   if (memory.settings.facebook === undefined) memory.settings.facebook = FACEBOOK;
+  if (memory.settings.youtube === undefined) memory.settings.youtube = YOUTUBE;
   if (memory.settings.email === 'hopebetterword@gmail.com') memory.settings.email = EMAIL;
   return memory;
 }
