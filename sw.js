@@ -1,5 +1,5 @@
 /* Service worker : le site reste consultable hors connexion une fois visité. */
-const CACHE = 'hbw-v3';
+const CACHE = 'hbw-v4';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'js/app.js', 'js/admin.js', 'js/data.js', 'js/ui.js', 'js/statuts.js', 'js/vendor/lucide.min.js',
   'img/logo.jpg', 'img/icon-192.png', 'manifest.webmanifest',
