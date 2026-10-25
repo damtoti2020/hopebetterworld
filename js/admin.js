@@ -393,7 +393,7 @@ function tMedias(main, rerender) {
   const medias = db.data.medias;
   main.innerHTML = `
     <div class="spread"><h2>Flash vidéos</h2><button class="btn btn-primary btn-sm" type="button" id="f-add"><i data-lucide="plus"></i>Nouveau flash</button></div>
-    <div class="notice"><i data-lucide="info"></i><span>Collez le lien d’une vidéo YouTube (y compris Shorts), Vimeo ou d’un fichier MP4, ou ajoutez seulement une image et un texte court. Format vertical conseillé, moins d’une minute.</span></div>
+    <div class="notice"><i data-lucide="info"></i><span>Collez le lien d’une vidéo YouTube (y compris Shorts), Vimeo, Facebook ou d’un fichier MP4, ou ajoutez seulement une image et un texte court. Format vertical conseillé, moins d’une minute.</span></div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Flash</th><th>Visible</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
       <tbody>${flashs.map((f) => `<tr><td class="num">${esc(fmtDate(f.date))}</td><td><b>${esc(f.titre)}</b>${exChip(f)}<div class="sub">${f.videoUrl ? 'Vidéo · ' : ''}${esc(f.texte.slice(0, 80))}</div></td>
         <td>${f.publie ? '<span class="chip ok">En ligne</span>' : '<span class="chip">Brouillon</span>'}</td>
@@ -642,6 +642,7 @@ function tParametres(main, rerender) {
       <div class="form-grid">
         <div class="field"><label for="sf-email">E-mail public</label><input id="sf-email" name="email" type="email" value="${esc(s.email)}"><span class="hint">Le logo indique « hopebetterword » : vérifiez l’orthographe.</span></div>
         <div class="field"><label for="sf-tel">Téléphone public</label><input id="sf-tel" name="tel" value="${esc(s.tel)}"></div>
+        <div class="field"><label for="sf-fb">Page Facebook</label><input id="sf-fb" name="facebook" type="url" value="${esc(s.facebook || '')}"></div>
         <div class="field"><label for="sf-siege">Siège social</label><input id="sf-siege" name="siege" value="${esc(s.siege)}"></div>
       </div>
       <h3>Cotisations ${year()} <span class="small muted">(fixées par l’assemblée générale, art. 5)</span></h3>
