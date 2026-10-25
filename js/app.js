@@ -53,6 +53,7 @@ function renderFooter() {
       <p>${esc(s.siege)}</p>
       <p><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></p>
       ${s.tel ? `<p>${esc(s.tel)}</p>` : ''}
+      ${s.facebook ? `<p><a href="${esc(s.facebook)}" target="_blank" rel="noopener" class="row" style="gap:8px;display:inline-flex"><i data-lucide="facebook"></i>Suivez-nous sur Facebook</a></p>` : ''}
     </div>
     <div class="stack" style="gap:6px">
       <h4>Agir avec nous</h4>
@@ -270,6 +271,7 @@ function pageFlash(el) {
   <section class="section"><div class="wrap">
     ${sectionHead('Flash vidéos', 'Nos actions en images', 'De courtes vidéos et des nouvelles du terrain. Touchez une carte pour la lire.')}
     ${flashs.length ? `<div class="flash-rail">${flashs.map(flashCard).join('')}</div>` : '<p class="muted">Aucune vidéo publiée pour le moment.</p>'}
+    ${S().facebook ? `<p style="margin-top:16px"><a class="btn btn-ghost" href="${esc(S().facebook)}" target="_blank" rel="noopener"><i data-lucide="facebook"></i>Plus de vidéos sur notre page Facebook</a></p>` : ''}
   </div></section>
   <section class="section section-alt"><div class="wrap">
     ${sectionHead('Galerie', 'Photos de nos actions')}
@@ -347,6 +349,7 @@ function pageAssociation(el) {
           .map(([k, v]) => `<div><dt class="small muted">${esc(k)}</dt><dd style="margin:0;font-weight:600">${esc(v)}</dd></div>`).join('')}
       </dl>
       <a class="btn btn-ghost" href="docs/statuts-hbw.pdf" target="_blank" rel="noopener"><i data-lucide="file-text"></i>Statuts signés (PDF)</a>
+      ${d.settings.facebook ? `<a class="btn btn-ghost" href="${esc(d.settings.facebook)}" target="_blank" rel="noopener"><i data-lucide="facebook"></i>Page Facebook</a>` : ''}
     </div>
   </div></section>
   <section class="section section-alt"><div class="wrap">
@@ -521,6 +524,7 @@ function pageContact(el) {
         <button class="btn btn-ghost btn-sm" type="button" id="copy-mail" style="align-self:flex-start"><i data-lucide="copy"></i>Copier l’adresse</button>
         ${s.tel ? `<p><b>Téléphone</b><br>${esc(s.tel)}</p>` : ''}
       </div>
+      ${s.facebook ? `<a class="btn btn-blue" href="${esc(s.facebook)}" target="_blank" rel="noopener"><i data-lucide="facebook"></i>Notre page Facebook</a>` : ''}
       <a class="btn btn-ghost" href="https://www.openstreetmap.org/search?query=${encodeURIComponent(s.siege)}" target="_blank" rel="noopener"><i data-lucide="map-pin"></i>Voir sur la carte</a>
     </aside>
   </div></section>`;

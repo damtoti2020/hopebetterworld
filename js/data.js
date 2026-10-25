@@ -4,6 +4,8 @@
  * (voir docs/DEPLOIEMENT.md) : le reste de l'application ne change pas. */
 
 const STORAGE_KEY = 'hbw-data-v1';
+const EMAIL = 'hopebetterworld2020@gmail.com';
+const FACEBOOK = 'https://www.facebook.com/profile.php?id=100067997473253';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -73,8 +75,9 @@ function seed() {
       siret: '753 753 983 00019',
       ape: '9499Z',
       siege: '15 rue Crespin du Gast, 75011 Paris',
-      email: 'hopebetterword@gmail.com',
+      email: EMAIL,
       tel: '',
+      facebook: FACEBOOK,
       helloassoAdhesion: '',
       helloassoDon: '',
       cotisations: { actif: 20, bienfaiteur: 50, bienfaiteurEntree: 10, morale: 100, fondateur: 20 },
@@ -129,6 +132,8 @@ function load() {
     if (raw) memory = JSON.parse(raw);
   } catch (e) { /* stockage indisponible : on reste en mémoire */ }
   if (!memory || memory.version !== 1) memory = seed();
+  if (memory.settings.facebook === undefined) memory.settings.facebook = FACEBOOK;
+  if (memory.settings.email === 'hopebetterword@gmail.com') memory.settings.email = EMAIL;
   return memory;
 }
 
